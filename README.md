@@ -1,5 +1,8 @@
 # YT2NAS
 
+> [!IMPORTANT]
+> Folder (/mnt/NAS/Youtube), username, password, and local IP are specified in several places. Replace these with your own.
+
 1.) [NAS] install ffmpeg
 ```
 sudo apt install ffmpeg
@@ -54,7 +57,7 @@ nano ~/.config/yt-dlp/config
 ```
 mkdir -p /mnt/NAS/Youtube
 ```
-3/4.) if you use another user to access your NAS, add them so that they can also manage this folder: $${\color{red}CHANGE.YOUR.USERNAME}$$
+3/4.) if you use another user to access your NAS, add them so that they can also manage this folder: $${\color{red}CHANGE \space YOUR \space USERNAME}$$
 ```
 sudo chown -R your_username:your_username /mnt/NAS/Youtube
 sudo chmod -R u+rwX /mnt/NAS/Youtube
@@ -124,7 +127,7 @@ sudo chmod +x /usr/local/bin/ytqueue-add.sh
 ```
 sudo nano /usr/local/bin/ytqueue-run.sh
 ```
-paste this code in it: $${\color{red}CHANGE.YOUR.USERNAME}$$
+paste this code in it: $${\color{red}CHANGE \space YOUR \space USERNAME}$$
 ```
 #!/usr/bin/env bash
 set -euo pipefail
@@ -191,7 +194,7 @@ crontab -e
 
 7.) [NAS] create the endpoint:
 
-7/1.) create password for the endpoint: $${\color{red}CHANGE.YOUR.USERNAME}$$
+7/1.) create password for the endpoint: $${\color{red}CHANGE \space YOUR \space USERNAME \space AND  \space PASSWORD }$$
 ```
 sudo mkdir -p /mnt/NAS/Youtube/.queue
 echo "your_password" | sudo tee /mnt/NAS/Youtube/.queue/endpoint.secret >/dev/null
@@ -420,7 +423,7 @@ sudo chmod 755 /usr/local/bin/ytqueue_server.py
 ```
 sudo nano /etc/systemd/system/ytqueue-endpoint.service
 ```
-paste this code in it: $${\color{red}CHANGE.YOUR.USERNAME}$$
+paste this code in it: $${\color{red}CHANGE \space YOUR \space USERNAME}$$
 ```
 [Unit]
 Description=yt-dlp TXT queue endpoint
@@ -431,7 +434,7 @@ RequiresMountsFor=/mnt/NAS/Youtube
 [Service]
 Type=simple
 User=your_username
-Group=your_username
+Group=your_group
 ExecStart=/usr/bin/python3 /usr/local/bin/ytqueue_server.py
 Restart=always
 RestartSec=2
@@ -496,7 +499,7 @@ first change "YOUR_LOCAL_IP" to your local ip!!!
     const next = prompt('Endpoint base URL (pl. http://YOUR_LOCAL_IP:9835):', cur);
     if (next && /^https?:\/\/[^ ]+$/.test(next.trim())) {
       GM_setValue(KEY_ENDPOINT, next.trim().replace(/\/+$/, ''));
-      toast('Endpoint mentve.');
+      toast('Endpoint saved.');
     } else if (next !== null) {
       toast('Wrong endpoint address.');
     }
