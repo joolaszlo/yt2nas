@@ -28,9 +28,9 @@ source ~/.bashrc
 mkdir -p ~/.config/yt-dlp
 nano ~/.config/yt-dlp/config
 ```
-3/2.) then paste this to the opened file:
+3/2.) then paste this to the opened file: 
 ```
-# here you can specify where to save your downloads.
+# specify where to save your downloads
 -P /mnt/NAS/Youtube
 
 # specifying the file name; for other options, see yt-dlp (channel / date - title [id].ext)
@@ -40,26 +40,22 @@ nano ~/.config/yt-dlp/config
 -f bv*[height<=2160]+ba/b[height<=2160]
 --merge-output-format mkv
 
-# to avoid repeated downloads, an archive is necessary.
 --download-archive /mnt/NAS/Youtube/.yt_archive.txt
 
-# download settings
 --retries 10
 --fragment-retries 10
 --concurrent-fragments 4
 
-# error handling
 --ignore-errors
 
-# playlist enabling
 --yes-playlist
-
-3/3.) create the download folder:
-
+```
+3/3.) create the download folder: 
+```
 mkdir -p /mnt/NAS/Youtube
-
-3/4.) if you use another user to access your NAS, add them so that they can also manage this folder:
-
+```
+3/4.) if you use another user to access your NAS, add them so that they can also manage this folder: $${\color{red}CHANGE THE YOUR_USERNAME$$
+```
 sudo chown -R your_username:your_username /mnt/NAS/Youtube
 sudo chmod -R u+rwX /mnt/NAS/Youtube
 ```
@@ -128,7 +124,7 @@ sudo chmod +x /usr/local/bin/ytqueue-add.sh
 ```
 sudo nano /usr/local/bin/ytqueue-run.sh
 ```
-paste this code in it:
+paste this code in it: $${\color{red}CHANGE THE YOUR_USERNAME$$
 ```
 #!/usr/bin/env bash
 set -euo pipefail
@@ -180,21 +176,22 @@ fi
 }
 
 rm -f "$BATCH_FILE"
-
+```
 6/2.) give permission:
-
+```
 sudo chmod +x /usr/local/bin/ytqueue-run.sh
-
+```
 6/3.) create a cron job:
-
+```
 crontab -e
-
+```
+```
 */5 * * * * /usr/local/bin/ytqueue-run.sh (this runs every 5 minutes, but you can set it to whatever you like.)
 ```
 
 7.) [NAS] create the endpoint:
 
-7/1.) create password for the endpoint:
+7/1.) create password for the endpoint: $${\color{red}CHANGE THE YOUR_USERNAME$$
 ```
 sudo mkdir -p /mnt/NAS/Youtube/.queue
 echo "your_password" | sudo tee /mnt/NAS/Youtube/.queue/endpoint.secret >/dev/null
@@ -205,7 +202,7 @@ sudo chmod 600 /mnt/NAS/Youtube/.queue/endpoint.secret
 ```
 sudo nano /usr/local/bin/ytqueue_server.py
 ```
-paste this code in it:
+paste this code in it: 
 ```
 #!/usr/bin/env python3
 import json
@@ -423,7 +420,7 @@ sudo chmod 755 /usr/local/bin/ytqueue_server.py
 ```
 sudo nano /etc/systemd/system/ytqueue-endpoint.service
 ```
-paste this code in it:
+paste this code in it: $${\color{red}CHANGE THE YOUR_USERNAME$$
 ```
 [Unit]
 Description=yt-dlp TXT queue endpoint
@@ -433,8 +430,8 @@ RequiresMountsFor=/mnt/NAS/Youtube
 
 [Service]
 Type=simple
-User=gebana
-Group=gebana
+User=your_username
+Group=your_username
 ExecStart=/usr/bin/python3 /usr/local/bin/ytqueue_server.py
 Restart=always
 RestartSec=2
@@ -461,7 +458,7 @@ sudo ufw deny 9835/tcp
 
 9/1.) install the Tampermonkey browser extension.
 
-9/2.) add this to the new script:
+9/2.) add this to the new script: $${\color{red}CHANGE THE YOUR_LOCAL_IP$$
 ```
 first change "YOUR_LOCAL_IP" to your local ip!!!
 
@@ -501,7 +498,7 @@ first change "YOUR_LOCAL_IP" to your local ip!!!
       GM_setValue(KEY_ENDPOINT, next.trim().replace(/\/+$/, ''));
       toast('Endpoint mentve.');
     } else if (next !== null) {
-      toast('Érvénytelen endpoint.');
+      toast('Wrong endpoint address.');
     }
   }
 
@@ -510,14 +507,14 @@ first change "YOUR_LOCAL_IP" to your local ip!!!
     const next = prompt('password:', cur);
     if (next && next.trim().length >= 4) {
       GM_setValue(KEY_TOKEN, next.trim());
-      toast('Jelszó mentve.');
+      toast('Password saved');
     } else if (next !== null) {
       toast('wrong password');
     }
   }
 
   GM_registerMenuCommand('ytqueue: Set endpoint', setEndpointInteractive);
-  GM_registerMenuCommand('ytqueue: Set token', setTokenInteractive);
+  GM_registerMenuCommand('ytqueue: Set password', setTokenInteractive);
 
   function toast(msg) {
     const id = 'ytqueue_toast';
