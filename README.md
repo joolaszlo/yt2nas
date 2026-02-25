@@ -11,9 +11,10 @@ mkdir -p ~/.local/bin
 curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o ~/.local/bin/yt-dlp
 chmod a+rx ~/.local/bin/yt-dlp
 ~/.local/bin/yt-dlp --version
+```
 
 then adding PATH:
-
+```
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.profile
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 source ~/.profile
@@ -21,13 +22,14 @@ source ~/.bashrc
 ```
 
 3.) [NAS] configuring yt-dlp
-```
+
 3/1.) create folder for config:
+```
 mkdir -p ~/.config/yt-dlp
 nano ~/.config/yt-dlp/config
-
+```
 3/2.) then paste this to the opened file:
-
+```
 # here you can specify where to save your downloads.
 -P /mnt/NAS/Youtube
 
@@ -72,20 +74,20 @@ deno --version
 ```
 
 5.) [NAS] make the queue:
-```
-5/1.) make files:
 
+5/1.) make files:
+```
 mkdir -p /mnt/NAS/Youtube/.queue
 touch /mnt/NAS/Youtube/.queue/queue.txt
 touch /mnt/NAS/Youtube/.queue/archive.txt
 touch /mnt/NAS/Youtube/.queue/yt-dlp.log
-
+```
 5/2). create the queue script:
-
+```
 sudo nano /usr/local/bin/ytqueue-add.sh
-
+```
 paste this code in it:
-
+```
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -114,20 +116,20 @@ touch "$QUEUE_FILE"
 ) 200>"$LOCK_FILE"
 
 echo "OK"
-
+```
 5/3.) give permission:
-
+```
 sudo chmod +x /usr/local/bin/ytqueue-add.sh
 ```
 
 6.) [NAS] queue automation:
-```
+
 6/1.) make the file:
-
+```
 sudo nano /usr/local/bin/ytqueue-run.sh
-
+```
 paste this code in it:
-
+```
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -191,20 +193,20 @@ crontab -e
 ```
 
 7.) [NAS] create the endpoint:
-```
-7/1.) create password for the endpoint:
 
+7/1.) create password for the endpoint:
+```
 sudo mkdir -p /mnt/NAS/Youtube/.queue
 echo "your_password" | sudo tee /mnt/NAS/Youtube/.queue/endpoint.secret >/dev/null
 sudo chown your_username:your_username /mnt/NAS/Youtube/.queue/endpoint.secret
 sudo chmod 600 /mnt/NAS/Youtube/.queue/endpoint.secret
-
+```
 7/2.) make the file:
-
+```
 sudo nano /usr/local/bin/ytqueue_server.py
-
+```
 paste this code in it:
-
+```
 #!/usr/bin/env python3
 import json
 import os
@@ -412,16 +414,17 @@ def main():
 
 if __name__ == "__main__":
     main()
-
+```
 7/3.) give permission:
+```
 sudo chmod 755 /usr/local/bin/ytqueue_server.py
-
+```
 7/4.) create the service:
-
+```
 sudo nano /etc/systemd/system/ytqueue-endpoint.service
-
+```
 paste this code in it:
-
+```
 [Unit]
 Description=yt-dlp TXT queue endpoint
 After=network-online.target
@@ -455,11 +458,11 @@ sudo ufw deny 9835/tcp
 ```
 
 9.) [PC] Tampermonkey script:
-```
+
 9/1.) install the Tampermonkey browser extension.
 
 9/2.) add this to the new script:
-
+```
 first change "YOUR_LOCAL_IP" to your local ip!!!
 
 // ==UserScript==
