@@ -200,8 +200,9 @@ sudo chmod +x /usr/local/bin/ytqueue-run.sh
 crontab -e
 ```
 ```
-*/5 * * * * /usr/local/bin/ytqueue-run.sh (this runs every 5 minutes, but you can set it to whatever you like.)
+*/5 * * * * /usr/local/bin/ytqueue-run.sh 
 ```
+this runs every 5 minutes, but you can set it to whatever you like.
 
 7.) [NAS] create the endpoint:
 
