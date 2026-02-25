@@ -37,4 +37,4 @@ A minimalist Flutter app that:
 4. The NAS downloads items **in queue order**
 5. Kodi (or any player) browses the NAS folder and plays the downloaded files
 
-Detailed usage guide: **[How to use](./howtouse.md)**
+Detailed usage guide: **[How to use](./howto.md)**
