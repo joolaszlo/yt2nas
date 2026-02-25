@@ -1,7 +1,18 @@
+
 # YT2NAS
 
-> [!IMPORTANT]
-> Folder (/mnt/NAS/Youtube), username, password, and local IP are specified in several places. Replace these with your own.
+Queue YouTube links from your browser (Tampermonkey) or from Android device to your NAS, where yt-dlp downloads them on a schedule.
+
+IMPORTANT
+The following values appear in multiple places and must be replaced everywhere:
+
+- Download folder: /mnt/NAS/Youtube
+- Linux user: your_username
+- Linux group: your_group
+- Endpoint password: your_password
+- Local IP: YOUR_LOCAL_IP (example: 192.168.0.10)
+
+------------------------------------------------------------
 
 1.) [NAS] install ffmpeg
 ```
