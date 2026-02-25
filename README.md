@@ -54,7 +54,7 @@ nano ~/.config/yt-dlp/config
 ```
 mkdir -p /mnt/NAS/Youtube
 ```
-3/4.) if you use another user to access your NAS, add them so that they can also manage this folder: $${\color{red}CHANGE THE YOUR USERNAME}$$
+3/4.) if you use another user to access your NAS, add them so that they can also manage this folder: $${\color{red}CHANGE.YOUR.USERNAME}$$
 ```
 sudo chown -R your_username:your_username /mnt/NAS/Youtube
 sudo chmod -R u+rwX /mnt/NAS/Youtube
@@ -124,7 +124,7 @@ sudo chmod +x /usr/local/bin/ytqueue-add.sh
 ```
 sudo nano /usr/local/bin/ytqueue-run.sh
 ```
-paste this code in it: $${\color{red}CHANGE THE YOUR USERNAME}$$
+paste this code in it: $${\color{red}CHANGE.YOUR.USERNAME}$$
 ```
 #!/usr/bin/env bash
 set -euo pipefail
@@ -191,7 +191,7 @@ crontab -e
 
 7.) [NAS] create the endpoint:
 
-7/1.) create password for the endpoint: $${\color{red}CHANGE THE YOUR USERNAME}$$
+7/1.) create password for the endpoint: $${\color{red}CHANGE.YOUR.USERNAME}$$
 ```
 sudo mkdir -p /mnt/NAS/Youtube/.queue
 echo "your_password" | sudo tee /mnt/NAS/Youtube/.queue/endpoint.secret >/dev/null
@@ -420,7 +420,7 @@ sudo chmod 755 /usr/local/bin/ytqueue_server.py
 ```
 sudo nano /etc/systemd/system/ytqueue-endpoint.service
 ```
-paste this code in it: $${\color{red}CHANGE THE YOUR USERNAME}$$
+paste this code in it: $${\color{red}CHANGE.YOUR.USERNAME}$$
 ```
 [Unit]
 Description=yt-dlp TXT queue endpoint
@@ -458,7 +458,7 @@ sudo ufw deny 9835/tcp
 
 9/1.) install the Tampermonkey browser extension.
 
-9/2.) add this to the new script: $${\color{red}CHANGE THE YOUR LOCAL IP}$$
+9/2.) add this to the new script: $${\color{red}CHANGE.YOUR.LOCAL.IP}$$
 ```
 first change "YOUR_LOCAL_IP" to your local ip!!!
 
