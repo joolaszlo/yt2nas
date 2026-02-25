@@ -657,3 +657,5 @@ first change "YOUR_LOCAL_IP" to your local ip!!!
 ```
 
 10.) [Android] install YT2NAS client app to your phone
+
+download the apk
