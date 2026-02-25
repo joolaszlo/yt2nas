@@ -9,7 +9,7 @@ The goal is simple: from a browser (via a YouTube page button) or from Android (
 ## Components
 
 ### 1) NAS-side downloader
-The NAS runs the actual download ( `yt-dlp`).  
+The NAS runs the actual download ( [yt-dlp](https://github.com/yt-dlp/yt-dlp)).  
 Both the browser script and the Android app call the **same HTTP endpoint**, where:
 - submitted URLs are added to a **queue**
 - processing happens **sequentially**
