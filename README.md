@@ -39,4 +39,6 @@ A minimalist Flutter app that:
 
 Detailed usage guide: **[How to use](./docs/howto.md)**
 
+Install script for the server: **[Easy mode](./docs/how_to_install_the_server_easymode.md)**
+
 Build your own server: **[How to create](./docs/how_to_create_your_own_server.md)**
