@@ -8,6 +8,8 @@ This section is NAS-side setup only. Client side (Android app, Tampermonkey scri
 
 Minimal description: run one installer script on your Ubuntu server. It installs dependencies, sets up the download queue, starts the endpoint service, schedules downloads, and configures the firewall for LAN-only access.
 
+Download the installer: **[yt2nas-server-setup.sh](./server/yt2nas-server-setup.sh)**
+
 ### Commands
 
 ```bash
