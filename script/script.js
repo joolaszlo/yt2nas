@@ -32,20 +32,20 @@
     const next = prompt('Endpoint base URL (pl. http://192.168.0.157:9835):', cur);
     if (next && /^https?:\/\/[^ ]+$/.test(next.trim())) {
       GM_setValue(KEY_ENDPOINT, next.trim().replace(/\/+$/, ''));
-      toast('Endpoint mentve.');
+      toast('Endpoint saved.');
     } else if (next !== null) {
-      toast('Érvénytelen endpoint.');
+      toast('Invalid endpoint.');
     }
   }
 
   function setTokenInteractive() {
     const cur = getToken();
-    const next = prompt('Jelszó (X-Token), pl. 8 karakter:', cur);
+    const next = prompt('Token (X-Token):', cur);
     if (next && next.trim().length >= 4) {
       GM_setValue(KEY_TOKEN, next.trim());
-      toast('Jelszó mentve.');
+      toast('Token saved.');
     } else if (next !== null) {
-      toast('Érvénytelen jelszó.');
+      toast('Invalid token.');
     }
   }
 
@@ -106,7 +106,7 @@
         } else if (resp.status === 401) {
           toast('401 unauthorized. Wrong token (X-Token).');
         } else {
-          const err = (data && (data.error || data.details)) ? (data.error + (data.details ? (': ' + data.details) : '')) : 'ismeretlen hiba';
+          const err = (data && (data.error || data.details)) ? (data.error + (data.details ? (': ' + data.details) : '')) : 'unknown error';
           toast('Hiba: ' + resp.status + ' ' + err);
         }
       },
@@ -173,5 +173,5 @@
   const mo = new MutationObserver(() => refreshButtons());
   mo.observe(document.documentElement, { childList: true, subtree: true });
 
-  toast('ytqueue ready. Menüben állítsd be a jelszót, ha kell.');
+  toast('ytqueue ready.');
 })();
