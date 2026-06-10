@@ -1,197 +1,190 @@
 # How to Install the YT2NAS Server (Ubuntu)
 
-This section is NAS-side setup only. Client side (Android app, Tampermonkey script) is handled separately.
-
----
-
-## Easy mode
-
-Minimal description: run one installer script on your Ubuntu server. It installs dependencies, sets up the download queue, starts the endpoint service, schedules downloads, and configures the firewall for LAN-only access.
-
-Download the installer: **[yt2nas-server-setup.sh](https://github.com/joolaszlo/yt2nas/blob/cace475f5af12dedad68e4d8dab4915a1aaeb0a6/server/yt2nas-server-setup.sh)**
-
-### Commands
-
-```bash
-chmod +x yt2nas-server-setup
-sudo ./yt2nas-server-setup install
-sudo ./yt2nas-server-setup status
-sudo ./yt2nas-server-setup update
-sudo ./yt2nas-server-setup uninstall
-sudo ./yt2nas-server-setup uninstall --purge
-```
-
-Notes:
-- `uninstall` keeps videos and the main download folder.
-- `uninstall --purge` also deletes the queue folder: `<DOWNLOAD_DIR>/.queue` (videos remain).
-
----
-
-## Advanced mode
+This is the NAS-side setup. Client setup for Android and Tampermonkey is handled separately.
 
 ## Requirements
+
 - Ubuntu with systemd
 - sudo access
-- Your NAS share is already mounted on the server (example: `/mnt/NAS`)
-- Choose a download folder inside the mounted NAS path (example: `/mnt/NAS/Youtube`)
-- Optional: a second Linux user that accesses the NAS files over the network (common with Samba)
+- Python 3 already installed
+- Your NAS share already mounted, for example `/mnt/NAS`
+- A non-root Linux user that will run the server and downloads
 
-## What the installer sets up
-- Installs packages: `ffmpeg`, `python3`, `curl`, `ufw`, `util-linux` (for `flock`)
-- Installs `yt-dlp` into the service user home: `~/.local/bin/yt-dlp`
-- Writes yt-dlp config into: `~/.config/yt-dlp/config`
-- Creates queue folder: `<DOWNLOAD_DIR>/.queue`
-- Creates scripts:
+The default media root is `/mnt/NAS/Youtube`. The server only uses files under this root, with queue state in `<DOWNLOAD_DIR>/.queue`.
+
+## Install
+
+Clone or download this repository on the server, then run:
+
+```bash
+chmod +x server/install.sh server/yt2nas-server-setup.sh
+sudo ./server/install.sh install
+```
+
+The installer prompts for:
+
+- `RUN_USER`: non-root Linux user for the systemd service
+- `DOWNLOAD_DIR`: media root folder, default `/mnt/NAS/Youtube`
+- `PORT`: endpoint port, default `9835`
+- `TOKEN`: shared secret; leave empty to generate one
+
+The old entrypoint still works as a compatibility wrapper:
+
+```bash
+sudo ./server/yt2nas-server-setup.sh install
+```
+
+## What Gets Installed
+
+- Server module copied from `server/yt2nas_server.py` to `/opt/yt2nas-server/yt2nas_server.py`
+- Environment file: `/etc/yt2nas-server.env`
+- Endpoint service: `/etc/systemd/system/yt2nas-server.service`
+- Queue runner service and timer:
+  - `/etc/systemd/system/yt2nas-queue.service`
+  - `/etc/systemd/system/yt2nas-queue.timer`
+- Queue helper scripts:
   - `/usr/local/bin/yt2nas-add.sh`
   - `/usr/local/bin/yt2nas-run.sh`
-  - `/usr/local/bin/yt2nas_server.py`
-- Creates systemd units:
-  - `yt2nas-endpoint.service`
-  - `yt2nas-queue.service`
-  - `yt2nas-queue.timer`
-- Stores config: `/etc/yt2nas/yt2nas.conf`
-- Stores endpoint token in a secret file: `<DOWNLOAD_DIR>/.queue/endpoint.secret` (mode `600`)
-- Configures UFW:
-  - denies the endpoint port globally
-  - allows only from your trusted LAN subnet
+- Queue files and logs under `<DOWNLOAD_DIR>/.queue`
 
-## Interactive install details
-Run:
+The installer also keeps the legacy config file `/etc/yt2nas/yt2nas.conf` for compatibility with older documentation and scripts.
+
+## Configuration
+
+Runtime configuration lives in:
+
 ```bash
-sudo ./yt2nas-server-setup install
+sudo sed 's/^YT2NAS_TOKEN=.*/YT2NAS_TOKEN="<hidden>"/' /etc/yt2nas-server.env
 ```
 
-The installer asks for:
-- Service Linux user (runs endpoint and downloads)
-- Optional second Linux user (network file access user)
-- Shared group name (default: `yt2nas`)
-- Download folder (must be inside your NAS mount)
-- Endpoint port (default: `9835`)
-- Trusted subnet CIDR for UFW (default: `192.168.0.0/24`)
-- Queue runner interval in minutes (default: `5`)
-- Max video height (default: `2160`, examples: `720`, `1080`, `2160`)
-- Endpoint token/password (minimum 4 characters)
+Important values:
 
-## Folder permissions model
-- Download folder owner: `SERVICE_USER:GROUP`
-- Folder has setgid bit so new files inherit the group
-- Group members (service user and optional second user) can write and delete files
+- `YT2NAS_RUN_USER`: non-root user running the service
+- `YT2NAS_DOWNLOAD_DIR`: media root folder
+- `YT2NAS_PORT`: HTTP endpoint port
+- `YT2NAS_TOKEN`: shared secret sent as `X-Token`
+- `YT2NAS_ADD_SCRIPT`: queue helper script path
 
-## Verify services, timer, logs
-Check services:
+After editing `/etc/yt2nas-server.env`, restart the service:
+
 ```bash
-systemctl status yt2nas-endpoint.service --no-pager
-systemctl status yt2nas-queue.timer --no-pager
+sudo systemctl restart yt2nas-server.service
 ```
 
-Check timers and recent runs:
-```bash
-systemctl list-timers --all | grep yt2nas || true
-journalctl -u yt2nas-queue.service --no-pager -n 200
-```
+## Verify
 
-Queue and endpoint logs (file based):
 ```bash
-tail -n 200 <DOWNLOAD_DIR>/.queue/endpoint.log
-tail -n 200 <DOWNLOAD_DIR>/.queue/yt-dlp.log
-```
-
-## Firewall verification
-```bash
-sudo ufw status verbose
-```
-
-Expected behavior:
-- allow from `<TRUSTED_SUBNET>` to port `<PORT>/tcp`
-- deny `<PORT>/tcp` for other sources
-
-## Health and connectivity tests
-Local health check (on the server):
-```bash
+sudo systemctl status yt2nas-server.service --no-pager
+sudo systemctl status yt2nas-queue.timer --no-pager
 curl http://127.0.0.1:9835/health
 ```
 
-LAN health check (from another device on the subnet):
+If you changed the port, use that port instead of `9835`.
+
+Authenticated smoke test:
+
 ```bash
-curl http://YOUR_SERVER_IP:9835/health
-```
-
-If you changed the port during install, use that port instead of `9835`.
-
-## Non-interactive install (optional)
-
-With flags:
-```bash
-sudo ./yt2nas-server-setup install --yes \
-  --service-user YOUR_SERVICE_USER \
-  --nas-user YOUR_OPTIONAL_SECOND_USER \
-  --group yt2nas \
-  --download-dir /mnt/NAS/Youtube \
-  --port 9835 \
-  --subnet 192.168.0.0/24 \
-  --interval 5 \
-  --max-height 2160 \
-  --token 'YOUR_TOKEN'
-```
-
-With environment variables (flags override env vars):
-```bash
-sudo YT2NAS_SERVICE_USER=YOUR_SERVICE_USER \
-  YT2NAS_NAS_USER=YOUR_OPTIONAL_SECOND_USER \
-  YT2NAS_GROUP=yt2nas \
-  YT2NAS_DOWNLOAD_DIR=/mnt/NAS/Youtube \
-  YT2NAS_PORT=9835 \
-  YT2NAS_SUBNET=192.168.0.0/24 \
-  YT2NAS_INTERVAL=5 \
-  YT2NAS_MAX_HEIGHT=2160 \
-  YT2NAS_TOKEN='YOUR_TOKEN' \
-  ./yt2nas-server-setup install --yes
+TOKEN='YOUR_TOKEN'
+curl -sS -H "X-Token: $TOKEN" http://127.0.0.1:9835/queue-len
 ```
 
 ## Update
+
+Run from a fresh checkout of the repository:
+
 ```bash
-sudo ./yt2nas-server-setup update
+sudo ./server/install.sh update
 ```
 
-What it does:
-- Updates yt-dlp for the service user
-- Rewrites scripts and systemd unit files from the saved config
-- Restarts the endpoint service and queue timer
-- Reapplies UFW rules from the saved config
+This updates `yt-dlp`, recopies `server/yt2nas_server.py` into `/opt/yt2nas-server/`, rewrites managed scripts and units, and restarts services.
 
 ## Uninstall
+
 ```bash
-sudo ./yt2nas-server-setup uninstall
+sudo ./server/install.sh uninstall
 ```
 
-What it does:
-- Stops and disables systemd units
-- Removes unit files, scripts, and `/etc` config
-- Does not delete your download folder or videos
+This stops services and removes installed units, helper scripts, `/opt/yt2nas-server/yt2nas_server.py`, and config files. Downloaded videos remain.
 
-Uninstall with purge:
+To also remove queue files and logs:
+
 ```bash
-sudo ./yt2nas-server-setup uninstall --purge
+sudo ./server/install.sh uninstall --purge
 ```
 
-This also deletes `<DOWNLOAD_DIR>/.queue` (queue files and logs). Videos remain.
+`--purge` removes `<DOWNLOAD_DIR>/.queue`. It does not delete downloaded videos.
 
-## Server endpoint summary
+## Endpoint Summary
 
 Base URL:
-- `http://YOUR_SERVER_IP:9835`
 
-Endpoints:
-- `GET /health` (no auth)
+```text
+http://YOUR_SERVER_IP:9835
+```
 
-Authenticated endpoints (header required):
-- Header: `X-Token: <your_token>`
+Public endpoint:
 
-- `POST /add`
-  - JSON body: `{"url":"https://www.youtube.com/watch?v=VIDEO_ID"}`
+- `GET /health`
 
+Authenticated endpoints require this header:
+
+```text
+X-Token: <your_token>
+```
+
+- `POST /add` with JSON body `{"url":"https://www.youtube.com/watch?v=VIDEO_ID"}`
 - `GET /queue-len`
 - `GET /queue-tail?lines=50`
 - `GET /tail?log=yt&lines=120`
-  - `log=yt` for yt-dlp log
-  - `log=endpoint` for endpoint log
+- `GET /tail?log=endpoint&lines=120`
+- `GET /media/channels`
+- `GET /media/list?channel=<channel-folder-name>`
+- `POST /media/delete`
+
+## Media Management API
+
+All media paths are restricted to `YT2NAS_DOWNLOAD_DIR`, usually `/mnt/NAS/Youtube`. The server rejects absolute paths, path traversal, empty paths, and dot-prefixed internal folders such as `.queue`, `.trash`, or `.git`.
+
+Folder deletion is recursive. Use it carefully.
+
+List channel folders:
+
+```bash
+TOKEN='YOUR_TOKEN'
+curl -sS -H "X-Token: $TOKEN" \
+  http://127.0.0.1:9835/media/channels
+```
+
+List direct children of one channel folder:
+
+```bash
+TOKEN='YOUR_TOKEN'
+curl -sS -H "X-Token: $TOKEN" \
+  'http://127.0.0.1:9835/media/list?channel=Channel%20Name'
+```
+
+Delete files or folders under `DOWNLOAD_DIR`:
+
+```bash
+TOKEN='YOUR_TOKEN'
+curl -sS -X POST http://127.0.0.1:9835/media/delete \
+  -H "Content-Type: application/json" \
+  -H "X-Token: $TOKEN" \
+  -d '{"paths":["Channel Name/video.mp4","Channel Name/subfolder"]}'
+```
+
+The delete response contains both `deleted` and `failed` arrays so one bad path does not stop the rest of the request.
+
+## Manual Test Checklist
+
+```bash
+curl http://127.0.0.1:9835/health
+
+TOKEN='YOUR_TOKEN'
+curl -sS -H "X-Token: $TOKEN" http://127.0.0.1:9835/media/channels
+curl -sS -H "X-Token: $TOKEN" 'http://127.0.0.1:9835/media/list?channel=Channel%20Name'
+curl -sS -X POST http://127.0.0.1:9835/media/delete \
+  -H "Content-Type: application/json" \
+  -H "X-Token: $TOKEN" \
+  -d '{"paths":["Channel Name/test-file-to-delete.txt"]}'
+```
