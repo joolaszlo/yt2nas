@@ -1,4 +1,4 @@
-## [Unreleased]
+## [1.1.1] - 2026.06.10.
 
 ### Added
 - Added `server/install.sh` as the primary server installer and updater.
