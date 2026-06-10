@@ -82,7 +82,7 @@
     const token = getToken();
 
     if (!token) {
-      toast('Nincs jelszó beállítva. Tampermonkey menü: "ytqueue: Set token"');
+      toast('Token not set. Tampermonkey menu: "ytqueue: Set token"');
       return;
     }
 
@@ -104,14 +104,14 @@
           const ql = typeof data.queue_len === 'number' ? data.queue_len : '?';
           toast('Queue OK. queue_len=' + ql);
         } else if (resp.status === 401) {
-          toast('401 unauthorized. Rossz jelszó (X-Token).');
+          toast('401 unauthorized. Wrong token (X-Token).');
         } else {
           const err = (data && (data.error || data.details)) ? (data.error + (data.details ? (': ' + data.details) : '')) : 'ismeretlen hiba';
           toast('Hiba: ' + resp.status + ' ' + err);
         }
       },
-      ontimeout: () => toast('Timeout. Elérhető a NAS endpoint?'),
-      onerror: () => toast('Hálózati hiba. Tűzfal vagy endpoint nem elérhető.')
+      ontimeout: () => toast('Timeout.'),
+      onerror: () => toast('Network error.')
     });
   }
 
@@ -168,7 +168,6 @@
     ensureFloatingButton();
   }
 
-  // YouTube SPA navigáció miatt periodikus frissítés + observer
   setInterval(refreshButtons, 1500);
 
   const mo = new MutationObserver(() => refreshButtons());
