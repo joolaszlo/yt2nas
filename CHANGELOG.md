@@ -7,6 +7,7 @@
 - Added media browsing endpoints for channel folders and channel contents.
 - Added a permanent media deletion endpoint for files and folders under the configured media root.
 - Added documentation for Android media browser/delete compatibility.
+- Added beginner documentation for using the shared NAS download folder from Kodi over SMB/Samba.
 
 ### Changed
 - Kept `server/yt2nas-server-setup.sh` as a deprecated compatibility wrapper.

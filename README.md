@@ -10,9 +10,10 @@ YT2NAS lets you send YouTube links from a browser or Android phone to a NAS. The
 
 - **NAS/server side**: a Python stdlib HTTP server, queue scripts, `yt-dlp`, and systemd services.
 - **Android app**: shares YouTube links to the NAS, browses downloaded channel folders, and can delete media through the server API.
+- **Kodi or another media player**: reads the same downloaded files through the NAS network share, for example `smb://SERVER_IP/Youtube`.
 - **Tampermonkey/browser button**: adds a button to YouTube pages that sends the current URL to the NAS.
 
-Media deletion is available through the Android/server media API. Deleting a folder is permanent and recursive.
+Media deletion is available through the Android/server media API. Deleting a file or folder is permanent and affects the same files Kodi sees through SMB.
 
 ## Server Install
 
@@ -46,4 +47,5 @@ The installed server runs from `/opt/yt2nas-server/yt2nas_server.py`. Runtime co
 2. The NAS adds it to the queue.
 3. The queue timer runs `yt-dlp`.
 4. The downloaded files appear under the configured media root.
-5. Android or any NAS media player can browse the result.
+5. The NAS shares that folder on the LAN with SMB/Samba.
+6. Kodi reads the shared folder, while Android can browse or delete the same files through the YT2NAS server API.

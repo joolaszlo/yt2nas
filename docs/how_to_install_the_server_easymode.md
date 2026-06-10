@@ -107,6 +107,86 @@ curl -sS -H "X-Token: $TOKEN" http://127.0.0.1:9835/media/channels
 
 Avoid pasting real tokens into public logs or screenshots.
 
+## Share Downloads with Kodi over SMB
+
+YT2NAS and Kodi use the same downloaded files in two different ways:
+
+1. YT2NAS downloads videos into `DOWNLOAD_DIR`, usually `/mnt/NAS/Youtube`.
+2. Your NAS shares that folder on the local network with SMB/Samba.
+3. Kodi reads the shared folder over the network and plays the videos.
+4. The Android app talks to the YT2NAS server API. It can list files and delete files from the same folder that Kodi sees.
+
+The Linux path and the Kodi path are different views of the same folder.
+
+Example Linux/server path:
+
+```text
+/mnt/NAS/Youtube
+```
+
+Example Kodi/SMB path:
+
+```text
+smb://192.168.0.157/Youtube
+```
+
+Example Windows network path for the same share:
+
+```text
+\\192.168.0.157\Youtube
+```
+
+`Youtube` is only an example share name. Use the share name from your Samba/NAS configuration.
+
+### Add the Folder in Kodi
+
+On the device running Kodi:
+
+1. Open **Videos**.
+2. Open **Files**.
+3. Choose **Add videos...**.
+4. Choose **Browse**.
+5. Choose **Add network location...** if the share is not already listed.
+6. Set **Protocol** to **Windows network (SMB)**.
+7. Enter the server IP address, for example `192.168.0.157`.
+8. Enter the shared folder name, for example `Youtube`.
+9. Save the location and add it as a video source.
+
+If your SMB share needs a username and password, enter the Samba/NAS account that can read the shared folder.
+
+### Kodi and SMB Troubleshooting
+
+If files are visible on the server but not in Kodi, check these items.
+
+Confirm that the files exist in the Linux folder:
+
+```bash
+ls -la /mnt/NAS/Youtube
+```
+
+Check that Samba is running:
+
+```bash
+sudo systemctl status smbd
+```
+
+Check the Samba configuration:
+
+```bash
+sudo testparm -s
+```
+
+Look for a share that points to the same folder as `DOWNLOAD_DIR`, for example `/mnt/NAS/Youtube`.
+
+In Kodi, open the video source and refresh it. If the share name or server IP changed, remove the old Kodi source and add it again.
+
+Permissions are checked in two places:
+
+- YT2NAS needs read, write, and delete permission inside `DOWNLOAD_DIR`.
+- Kodi usually only needs read permission through the SMB share.
+
+Deleting from the Android app is permanent. Deleted files disappear from the same folder Kodi reads, so Kodi will no longer be able to play them.
+
 ## Media Management Warning
 
 The server exposes media browsing and deletion endpoints for Android support:
@@ -115,7 +195,7 @@ The server exposes media browsing and deletion endpoints for Android support:
 - `GET /media/list?channel=<channel-folder-name>`
 - `POST /media/delete`
 
-Delete is permanent. Folder delete is recursive. The server rejects absolute paths, path traversal, and dot-prefixed internal folders such as `.queue`, `.trash`, and `.git`.
+Delete is permanent. Folder delete is recursive. Deleting from Android removes the same files that Kodi sees through SMB. The server rejects absolute paths, path traversal, and dot-prefixed internal folders such as `.queue`, `.trash`, and `.git`.
 
 ## Update
 
