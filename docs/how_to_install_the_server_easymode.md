@@ -1,230 +1,648 @@
-# Quick Server Install
+# YT2NAS Simple Installation Guide
 
-This guide installs the NAS-side YT2NAS server on Ubuntu. The Android app and Tampermonkey script are configured separately.
+This guide explains the basic installation of the full YT2NAS system.
 
-## Requirements
+The system has four main parts:
 
-- Ubuntu or another Linux system with systemd
-- sudo access
-- Python 3 installed
-- a mounted NAS folder, for example `/mnt/NAS`
-- a non-root Linux user that can read, write, and delete inside the media folder
+1. a NAS/Linux server
+2. a shared download folder
+3. a browser button on the PC
+4. an Android app
 
-The default media root is:
+Basic workflow:
+
+1. You send a YouTube link from the Android app or from the browser button.
+2. The server adds the link to a download queue.
+3. The server downloads the video into a NAS folder.
+4. Kodi or another media player reads the downloaded files from the shared folder.
+5. The Android app can also list and delete downloaded files through the server.
+
+Important: deleting files from the Android app is permanent. If you delete a folder, all files inside that folder are also deleted.
+
+---
+
+# 1. Create and share the download folder
+
+First, create a folder on the NAS or Linux server where the videos will be downloaded.
+
+Example:
+
+```bash
+sudo mkdir -p /mnt/NAS/Youtube
+```
+
+This folder will contain the downloaded videos. Usually, each channel will have its own folder.
+
+Example:
 
 ```text
 /mnt/NAS/Youtube
 ```
 
-Inside that folder, each channel is expected to be a direct child folder.
+## 1.1. Give the server user permission
 
-## Install Command
+The YT2NAS server should run as a normal Linux user, not as root.
 
-Run this from a checkout of the YT2NAS repo:
+Example user:
+
+```text
+nasuser
+```
+
+This user must be able to read, write, and delete files inside the download folder.
+
+Example permission setup:
+
+```bash
+sudo setfacl -R -m u:nasuser:rwx /mnt/NAS/Youtube
+sudo setfacl -R -m d:u:nasuser:rwx /mnt/NAS/Youtube
+```
+
+This gives `nasuser` permission for existing files and also sets default permissions for new files and folders.
+
+## 1.2. Share the folder over the network
+
+Kodi and other media players usually access the folder through SMB/Samba.
+
+The Linux folder path may be:
+
+```text
+/mnt/NAS/Youtube
+```
+
+The same folder may appear on the network as:
+
+```text
+smb://192.168.0.157/Youtube
+```
+
+On Windows, it may look like:
+
+```text
+\\192.168.0.157\Youtube
+```
+
+The exact share name depends on your Samba/NAS configuration.
+
+The important idea:
+
+* YT2NAS downloads files into the Linux folder.
+* Kodi reads the same files through the SMB share.
+* The Android app can delete the same files through the YT2NAS server.
+
+## 1.3. Add the folder in Kodi
+
+In Kodi:
+
+1. Open `Videos`.
+2. Open `Files`.
+3. Choose `Add videos`.
+4. Choose `Browse` or `Add network location`.
+5. Select `SMB`.
+6. Enter the server IP address.
+7. Enter or select the shared folder name.
+
+Example:
+
+```text
+Protocol: SMB
+Server address: 192.168.0.157
+Shared folder: Youtube
+```
+
+Example Kodi path:
+
+```text
+smb://192.168.0.157/Youtube
+```
+
+Kodi does not connect to the YT2NAS API. Kodi only reads the shared video folder.
+
+---
+
+# 2. Install the YT2NAS server
+
+Install the server on the Linux machine that can access the download folder.
+
+Server repository:
+
+```text
+https://github.com/joolaszlo/yt2nas
+```
+
+## 2.1. Copy or clone the server files
+
+Recommended method:
+
+```bash
+cd /mnt/NAS/NAS
+git clone https://github.com/joolaszlo/yt2nas.git
+cd yt2nas
+```
+
+If you do not use Git, copy the server repository files to your server.
+
+At minimum, the installer needs these files:
+
+```text
+server/install.sh
+server/yt2nas_server.py
+server/yt2nas-server-setup.sh
+```
+
+## 2.2. Stop an old server first, if one already exists
+
+If you already had an older YT2NAS or ytqueue server running, stop it before installing the new one.
+
+Find old services:
+
+```bash
+systemctl list-units --type=service | grep -iE 'yt2nas|ytqueue|youtube|ytdlp'
+```
+
+Check whether port `9835` is already in use:
+
+```bash
+sudo ss -ltnp | grep ':9835'
+```
+
+If you see something like this:
+
+```text
+/usr/bin/python3 /usr/local/bin/ytqueue_server.py
+```
+
+then an old server is probably still running.
+
+Find which service started it:
+
+```bash
+systemctl status PID
+```
+
+Replace `PID` with the process ID.
+
+Example:
+
+```bash
+systemctl status 1509
+```
+
+If the old service is named `ytqueue-endpoint.service`, stop and disable it:
+
+```bash
+sudo systemctl stop ytqueue-endpoint.service
+sudo systemctl disable ytqueue-endpoint.service
+```
+
+Check the port again:
+
+```bash
+sudo ss -ltnp | grep ':9835'
+```
+
+If there is no output, the port is free.
+
+## 2.3. Run the installer
+
+From the repository root:
 
 ```bash
 chmod +x server/install.sh server/yt2nas-server-setup.sh
 sudo ./server/install.sh install
 ```
 
-`server/yt2nas-server-setup.sh` is kept only as a deprecated compatibility wrapper. Use `server/install.sh` for new installs.
+The installer will ask for a few values.
 
-## Installer Prompts
+## 2.4. Installer questions
 
-The installer asks for these values:
+### RUN_USER
 
-- `RUN_USER`: the non-root Linux user that runs the server and queue.
-- `DOWNLOAD_DIR`: the media root folder, usually `/mnt/NAS/Youtube`.
-- `PORT`: the HTTP port, usually `9835`.
-- `TOKEN`: the shared secret used by Android, Tampermonkey, and curl requests.
+The Linux user that will run the YT2NAS server.
 
-Recommended values:
+Example:
 
 ```text
-RUN_USER      your normal NAS/download user
-DOWNLOAD_DIR  /mnt/NAS/Youtube
-PORT          9835
-TOKEN         leave empty to generate one, or paste your existing private token
+nasuser
 ```
 
-Do not share your real token publicly. It is the password-like shared secret for protected server endpoints.
+This user must have read/write/delete permission inside the download folder.
 
-## What Gets Installed
+### DOWNLOAD_DIR
 
-- versioned server file copied to `/opt/yt2nas-server/yt2nas_server.py`
-- runtime config written to `/etc/yt2nas-server.env`
-- main server service: `yt2nas-server.service`
-- queue service and timer: `yt2nas-queue.service` and `yt2nas-queue.timer`
-- queue helper scripts in `/usr/local/bin`
-- queue files and logs under `<DOWNLOAD_DIR>/.queue`
+The folder where videos will be downloaded.
 
-The installer also writes `/etc/yt2nas/yt2nas.conf` for compatibility with older scripts and documentation.
-
-## Edit Configuration Safely
-
-Show the config without printing the token:
-
-```bash
-sudo sed 's/^YT2NAS_TOKEN=.*/YT2NAS_TOKEN="<hidden>"/' /etc/yt2nas-server.env
-```
-
-Edit the config:
-
-```bash
-sudo nano /etc/yt2nas-server.env
-```
-
-Restart the server after changes:
-
-```bash
-sudo systemctl restart yt2nas-server.service
-```
-
-If you changed the port, update the Android app and browser script base URL too.
-
-## Test the Server
-
-Local health check on the NAS:
-
-```bash
-curl http://127.0.0.1:9835/health
-```
-
-LAN health check from another computer on the same network:
-
-```bash
-curl http://SERVER_LAN_IP:9835/health
-```
-
-Use the NAS LAN IP address, not `127.0.0.1`. On a phone, `127.0.0.1` means the phone itself.
-
-Token-protected media endpoint test:
-
-```bash
-TOKEN='paste-your-token-here'
-curl -sS -H "X-Token: $TOKEN" http://127.0.0.1:9835/media/channels
-```
-
-Avoid pasting real tokens into public logs or screenshots.
-
-## Share Downloads with Kodi over SMB
-
-YT2NAS and Kodi use the same downloaded files in two different ways:
-
-1. YT2NAS downloads videos into `DOWNLOAD_DIR`, usually `/mnt/NAS/Youtube`.
-2. Your NAS shares that folder on the local network with SMB/Samba.
-3. Kodi reads the shared folder over the network and plays the videos.
-4. The Android app talks to the YT2NAS server API. It can list files and delete files from the same folder that Kodi sees.
-
-The Linux path and the Kodi path are different views of the same folder.
-
-Example Linux/server path:
+Example:
 
 ```text
 /mnt/NAS/Youtube
 ```
 
-Example Kodi/SMB path:
+This is also the folder shared with Kodi.
+
+### PORT
+
+The HTTP port used by the YT2NAS server.
+
+Recommended example:
 
 ```text
-smb://192.168.0.157/Youtube
+9835
 ```
 
-Example Windows network path for the same share:
+The Android app and the browser button will use this port.
+
+### TOKEN
+
+The shared secret token used by clients.
+
+Example:
 
 ```text
-\\192.168.0.157\Youtube
+my-long-secret-token-123
 ```
 
-`Youtube` is only an example share name. Use the share name from your Samba/NAS configuration.
+The same token must be entered in:
 
-### Add the Folder in Kodi
+* the Android app
+* the Tampermonkey browser script
+* manual API tests using the `X-Token` header
 
-On the device running Kodi:
+Important: this token is not an encrypted password. It is the actual shared secret. Do not publish it.
 
-1. Open **Videos**.
-2. Open **Files**.
-3. Choose **Add videos...**.
-4. Choose **Browse**.
-5. Choose **Add network location...** if the share is not already listed.
-6. Set **Protocol** to **Windows network (SMB)**.
-7. Enter the server IP address, for example `192.168.0.157`.
-8. Enter the shared folder name, for example `Youtube`.
-9. Save the location and add it as a video source.
+---
 
-If your SMB share needs a username and password, enter the Samba/NAS account that can read the shared folder.
+# 3. Install the PC browser button
 
-### Kodi and SMB Troubleshooting
+The browser button is used to send the current YouTube video URL to the YT2NAS server.
 
-If files are visible on the server but not in Kodi, check these items.
+It uses Tampermonkey.
 
-Confirm that the files exist in the Linux folder:
+## 3.1. Install Tampermonkey
+
+Install the Tampermonkey extension in your browser.
+
+Common browsers:
+
+* Chrome
+* Edge
+* Firefox
+
+## 3.2. Add the YT2NAS userscript
+
+Open the Tampermonkey dashboard.
+
+Choose:
+
+```text
+Create a new script
+```
+
+Paste the YT2NAS userscript content:
+
+[script/script.js](./script/script.js)
+
+## 3.3. Configure the script
+
+Set the server URL in the script.
+
+Example:
+
+```text
+http://192.168.0.157:9835
+```
+
+Set the same token that you used during server installation.
+
+The script should send YouTube URLs to the server `/add` endpoint using the `X-Token` header.
+
+---
+
+# 4. Install the Android app
+
+The Android app is provided as a release APK. 
+
+## 4.1. Download the APK
+
+Open the YT2NAS server repository release page:
+
+```text
+https://github.com/joolaszlo/yt2nas/releases
+```
+
+## 4.2. Copy the APK to the phone
+
+You can copy the APK to the phone using:
+
+* USB cable
+* cloud storage
+* network share
+* messaging app
+* `adb install`
+
+ADB example:
+
+```bash
+adb install -r yt2nas-client.apk
+```
+
+If Android blocks the installation, allow installing apps from unknown sources for the app you used to open the APK.
+
+## 4.3. Configure the Android app
+
+Open the app and enter the server settings.
+
+Example:
+
+```text
+Server URL: http://192.168.0.157:9835
+Token: the same token used during server installation
+```
+
+## 4.4. Basic Android app usage
+
+The Android app can:
+
+* send YouTube links to the server
+* list downloaded channel folders
+* list downloaded files
+* delete downloaded files
+* delete downloaded folders
+
+Important: deleting a folder is recursive and permanent.
+
+Start with a test file before deleting real videos.
+
+---
+
+# 5. Troubleshooting and checks
+
+Use this section after installation if something does not work.
+
+## 5.1. Check whether the server is running
+
+On the server:
+
+```bash
+sudo systemctl status yt2nas-server.service --no-pager
+```
+
+Local health check:
+
+```bash
+curl http://127.0.0.1:9835/health
+```
+
+Expected result should contain something like:
+
+```json
+{"ok": true}
+```
+
+## 5.2. Check whether the server is reachable from the LAN
+
+Find the server IP:
+
+```bash
+hostname -I
+```
+
+Example:
+
+```text
+192.168.0.157
+```
+
+From another computer or from the phone browser, open:
+
+```text
+http://192.168.0.157:9835/health
+```
+
+If this does not work, check the firewall:
+
+```bash
+sudo ufw status
+```
+
+Allow the port on the local network if needed:
+
+```bash
+sudo ufw allow from 192.168.0.0/24 to any port 9835 proto tcp
+```
+
+## 5.3. Check token-protected endpoints
+
+The server config is stored here:
+
+```text
+/etc/yt2nas-server.env
+```
+
+View it on the server:
+
+```bash
+sudo cat /etc/yt2nas-server.env
+```
+
+Use the token in a test request:
+
+```bash
+TOKEN='YOUR_TOKEN'
+curl -sS -H "X-Token: $TOKEN" http://127.0.0.1:9835/media/channels
+```
+
+LAN test:
+
+```bash
+TOKEN='YOUR_TOKEN'
+curl -sS -H "X-Token: $TOKEN" http://192.168.0.157:9835/media/channels
+```
+
+If `/health` works but this does not, the token is probably wrong.
+
+## 5.4. App cannot connect
+
+Common causes:
+
+* wrong server URL
+* using `127.0.0.1` on the phone
+* wrong token
+* phone is not on the same network
+* firewall blocks the port
+* Android blocks cleartext HTTP traffic
+
+Correct app URL example:
+
+```text
+http://192.168.0.157:9835
+```
+
+Wrong app URL example:
+
+```text
+http://127.0.0.1:9835
+```
+
+## 5.5. Port already in use
+
+Check the port:
+
+```bash
+sudo ss -ltnp | grep ':9835'
+```
+
+Check the process:
+
+```bash
+ps -fp PID
+systemctl status PID
+```
+
+If an old service is using the port, stop and disable it.
+
+Example:
+
+```bash
+sudo systemctl stop ytqueue-endpoint.service
+sudo systemctl disable ytqueue-endpoint.service
+```
+
+## 5.6. File delete works, but folder delete does not
+
+Folder deletion needs permission on the folder and its contents.
+
+Test as the server user:
+
+```bash
+sudo -u nasuser ls -la /mnt/NAS/Youtube
+```
+
+Test file delete:
+
+```bash
+sudo -u nasuser touch "/mnt/NAS/Youtube/Test Channel/_delete_test.txt"
+sudo -u nasuser rm "/mnt/NAS/Youtube/Test Channel/_delete_test.txt"
+```
+
+Test folder delete:
+
+```bash
+sudo -u nasuser mkdir "/mnt/NAS/Youtube/Test Channel/_delete_test_dir"
+sudo -u nasuser rmdir "/mnt/NAS/Youtube/Test Channel/_delete_test_dir"
+```
+
+If this fails, apply ACL permissions:
+
+```bash
+sudo setfacl -R -m u:nasuser:rwx /mnt/NAS/Youtube
+sudo setfacl -R -m d:u:nasuser:rwx /mnt/NAS/Youtube
+```
+
+If `/mnt/NAS` is mounted through CIFS, NFS, NTFS, or another network filesystem, mount options may also affect permissions.
+
+## 5.7. Kodi cannot see the downloaded files
+
+Check whether the files exist on the server:
 
 ```bash
 ls -la /mnt/NAS/Youtube
 ```
 
-Check that Samba is running:
+If files exist on the server but not in Kodi:
+
+* check that Kodi uses the correct SMB share
+* check the Samba share path
+* check Samba permissions
+* refresh the Kodi source
+* restart Samba if the share configuration changed
+
+Restart Samba:
 
 ```bash
-sudo systemctl status smbd
+sudo systemctl restart smbd
 ```
 
-Check the Samba configuration:
+## 5.8. Useful logs
+
+Server service log:
 
 ```bash
-sudo testparm -s
+journalctl -u yt2nas-server.service -n 100 --no-pager
 ```
 
-Look for a share that points to the same folder as `DOWNLOAD_DIR`, for example `/mnt/NAS/Youtube`.
-
-In Kodi, open the video source and refresh it. If the share name or server IP changed, remove the old Kodi source and add it again.
-
-Permissions are checked in two places:
-
-- YT2NAS needs read, write, and delete permission inside `DOWNLOAD_DIR`.
-- Kodi usually only needs read permission through the SMB share.
-
-Deleting from the Android app is permanent. Deleted files disappear from the same folder Kodi reads, so Kodi will no longer be able to play them.
-
-## Media Management Warning
-
-The server exposes media browsing and deletion endpoints for Android support:
-
-- `GET /media/channels`
-- `GET /media/list?channel=<channel-folder-name>`
-- `POST /media/delete`
-
-Delete is permanent. Folder delete is recursive. Deleting from Android removes the same files that Kodi sees through SMB. The server rejects absolute paths, path traversal, and dot-prefixed internal folders such as `.queue`, `.trash`, and `.git`.
-
-## Update
-
-From a fresh checkout:
+Queue service log:
 
 ```bash
-sudo ./server/install.sh update
+journalctl -u yt2nas-queue.service -n 100 --no-pager
 ```
 
-This recopies `server/yt2nas_server.py` to `/opt/yt2nas-server/`, refreshes managed scripts and systemd units, updates `yt-dlp`, and restarts the services.
-
-## Uninstall
-
-Remove services, installed server files, helper scripts, and config files:
+Endpoint log file:
 
 ```bash
-sudo ./server/install.sh uninstall
+tail -n 100 /mnt/NAS/Youtube/.queue/endpoint.log
 ```
 
-Remove queue files and logs too:
+yt-dlp log file:
 
 ```bash
-sudo ./server/install.sh uninstall --purge
+tail -n 100 /mnt/NAS/Youtube/.queue/yt-dlp.log
 ```
 
-Downloaded videos are not deleted by uninstall. `--purge` removes only `<DOWNLOAD_DIR>/.queue`.
+---
 
-## More Help
+# 6. Important paths and values
 
-- [Existing server migration guide](./server_migration_guide.md)
-- [Troubleshooting](./troubleshooting.md)
-- [Server API contract](./how_to_create_your_own_server.md)
+Server configuration:
+
+```text
+/etc/yt2nas-server.env
+```
+
+Installed server file:
+
+```text
+/opt/yt2nas-server/yt2nas_server.py
+```
+
+Server service:
+
+```text
+yt2nas-server.service
+```
+
+Example download folder:
+
+```text
+/mnt/NAS/Youtube
+```
+
+Queue/log folder:
+
+```text
+/mnt/NAS/Youtube/.queue
+```
+
+Example server URL:
+
+```text
+http://192.168.0.157:9835
+```
+
+Example Kodi SMB path:
+
+```text
+smb://192.168.0.157/Youtube
+```
+
+Server repository:
+
+```text
+https://github.com/joolaszlo/yt2nas
+```
+
+Android app repository:
+
+```text
+https://github.com/joolaszlo/yt2nas_client
+```
