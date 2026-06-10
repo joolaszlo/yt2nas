@@ -15,20 +15,12 @@ YT2NAS lets you send YouTube links from a browser or Android phone to a NAS. The
 
 Media deletion is available through the Android/server media API. Deleting a file or folder is permanent and affects the same files Kodi sees through SMB.
 
-## Server Install
+## Install
 
-Run the server installer from a checkout of this repo:
-
-```bash
-chmod +x server/install.sh server/yt2nas-server-setup.sh
-sudo ./server/install.sh install
-```
-
-The installed server runs from `/opt/yt2nas-server/yt2nas_server.py`. Runtime configuration is stored in `/etc/yt2nas-server.env`.
+- [Simple Installation Guide](./docs/docs/Simple_Installation_Guide.md)
 
 ## Documentation
 
-- [Quick server install](./docs/how_to_install_the_server_easymode.md)
 - [Existing server migration guide](./docs/server_migration_guide.md)
 - [Troubleshooting](./docs/troubleshooting.md)
 - [Server API contract](./docs/how_to_create_your_own_server.md)
