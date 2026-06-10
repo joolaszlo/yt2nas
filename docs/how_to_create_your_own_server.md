@@ -1,6 +1,6 @@
-# How to Create Your Own Compatible Server
+# Server API Contract
 
-This document describes the HTTP contract used by the YT2NAS clients. If you build your own server, implement these endpoints and response shapes.
+This document describes the HTTP API used by the YT2NAS Android app and browser integration. Use it if you want to test the server manually or build a compatible client/server.
 
 Example base URL:
 
@@ -10,43 +10,47 @@ http://192.168.0.123:9835
 
 ## Authentication
 
-The client sends a shared secret in this header:
+`GET /health` is public. All other endpoints require:
 
 ```text
-X-Token: Password123
+X-Token: <your-token>
 ```
 
-Notes:
+The token is the shared app/server secret from `/etc/yt2nas-server.env`. Do not paste real tokens into public issues, screenshots, or chat.
 
-- `GET /health` does not require authentication.
-- All other endpoints listed here require `X-Token`.
-- Responses are JSON with `application/json; charset=utf-8`.
+Responses are JSON:
 
-## Endpoints
-
-### POST /add
-
-Enqueue a YouTube URL.
-
-Request:
-
-```http
-POST /add
-Content-Type: application/json
-X-Token: <token>
+```text
+application/json; charset=utf-8
 ```
 
-Body:
+## GET /health
 
-```json
-{"url":"https://www.youtube.com/watch?v=bmBTMYKMSKk"}
-```
-
-curl example:
+Checks whether the server is reachable.
 
 ```bash
 BASE_URL="http://192.168.0.123:9835"
-TOKEN="Password123"
+curl -sS "$BASE_URL/health"
+```
+
+Example response:
+
+```json
+{
+  "ok": true,
+  "queue_len": 2,
+  "has_secret": true,
+  "has_add_script": true
+}
+```
+
+## POST /add
+
+Adds a YouTube URL to the queue.
+
+```bash
+BASE_URL="http://192.168.0.123:9835"
+TOKEN='paste-your-token-here'
 
 curl -sS -X POST "$BASE_URL/add" \
   -H "Content-Type: application/json" \
@@ -54,13 +58,16 @@ curl -sS -X POST "$BASE_URL/add" \
   -d '{"url":"https://www.youtube.com/watch?v=bmBTMYKMSKk"}'
 ```
 
-Success response:
+Success:
 
 ```json
-{"ok":true,"queue_len":3}
+{
+  "ok": true,
+  "queue_len": 3
+}
 ```
 
-Common error responses:
+Common errors:
 
 ```json
 {"ok":false,"error":"unauthorized"}
@@ -74,98 +81,88 @@ Common error responses:
 {"ok":false,"error":"invalid_or_non_youtube_url"}
 ```
 
-### GET /health
+## GET /queue-len
 
-Used by clients to check whether the server is reachable.
-
-```bash
-BASE_URL="http://192.168.0.123:9835"
-curl -sS "$BASE_URL/health"
-```
-
-Response:
-
-```json
-{"ok":true,"queue_len":2,"has_secret":true,"has_add_script":true}
-```
-
-Fields:
-
-- `ok`: basic server health flag
-- `queue_len`: number of pending queue entries
-- `has_secret`: whether the server has a configured token
-- `has_add_script`: whether the enqueue helper exists
-
-### GET /queue-len
+Returns the number of queued URLs.
 
 ```bash
 BASE_URL="http://192.168.0.123:9835"
-TOKEN="Password123"
+TOKEN='paste-your-token-here'
 
 curl -sS -H "X-Token: $TOKEN" "$BASE_URL/queue-len"
 ```
 
-Response:
+Example response:
 
 ```json
-{"ok":true,"queue_len":2}
+{
+  "ok": true,
+  "queue_len": 2
+}
 ```
 
-### GET /queue-tail
+## GET /queue-tail
 
-Peek into queued URLs.
+Returns the last lines of the queue file.
 
 ```bash
 BASE_URL="http://192.168.0.123:9835"
-TOKEN="Password123"
+TOKEN='paste-your-token-here'
 
 curl -sS -H "X-Token: $TOKEN" "$BASE_URL/queue-tail?lines=50"
 ```
 
-Response:
+Example response:
 
 ```json
-{"ok":true,"lines":50,"text":"https://youtu.be/..."}
+{
+  "ok": true,
+  "lines": 50,
+  "text": "https://youtu.be/..."
+}
 ```
 
-### GET /tail
+## GET /tail
 
-Read a log tail.
+Returns the last lines of a server log.
 
 Query parameters:
 
-- `log=yt` or `log=ytdlp`: yt-dlp processing log
+- `log=yt` or `log=ytdlp`: `yt-dlp` processing log
 - `log=endpoint`: endpoint log
-- `lines=N`: number of lines to return; the reference server clamps this to 1-500
+- `lines=N`: number of lines to return
 
 ```bash
 BASE_URL="http://192.168.0.123:9835"
-TOKEN="Password123"
+TOKEN='paste-your-token-here'
 
 curl -sS -H "X-Token: $TOKEN" "$BASE_URL/tail?log=yt&lines=120"
 curl -sS -H "X-Token: $TOKEN" "$BASE_URL/tail?log=endpoint&lines=120"
 ```
 
-Response:
+Example response:
 
 ```json
-{"ok":true,"log":"yt","lines":120,"text":"==== 2026-03-03 ...\n[download] ...\n"}
+{
+  "ok": true,
+  "log": "yt",
+  "lines": 120,
+  "text": "==== 2026-03-03 ...\n[download] ...\n"
+}
 ```
 
-### GET /media/channels
+## GET /media/channels
 
-List immediate channel folders under the configured media root.
-
-Authentication is required.
+Lists immediate channel folders under `DOWNLOAD_DIR`.
 
 ```bash
 BASE_URL="http://192.168.0.123:9835"
-TOKEN="Password123"
+TOKEN='paste-your-token-here'
 
 curl -sS -H "X-Token: $TOKEN" "$BASE_URL/media/channels"
 ```
 
-Response:
+Example response:
 
 ```json
 {
@@ -181,27 +178,25 @@ Response:
 }
 ```
 
-Rules:
+Notes:
 
-- Only immediate child directories of `DOWNLOAD_DIR` are returned.
-- Dot-prefixed entries such as `.queue`, `.trash`, and `.git` are excluded.
-- `itemCount` is a direct child count only, not a recursive scan.
+- only immediate child folders are returned
+- dot-prefixed folders such as `.queue`, `.trash`, and `.git` are hidden
+- `itemCount` is a direct child count, not a recursive scan
 
-### GET /media/list
+## GET /media/list
 
-List direct children of one channel folder.
-
-Authentication is required.
+Lists direct children of one channel folder.
 
 ```bash
 BASE_URL="http://192.168.0.123:9835"
-TOKEN="Password123"
+TOKEN='paste-your-token-here'
 
 curl -sS -H "X-Token: $TOKEN" \
   "$BASE_URL/media/list?channel=Channel%20Name"
 ```
 
-Response:
+Example response:
 
 ```json
 {
@@ -240,21 +235,23 @@ Common errors:
 {"ok":false,"error":"channel_not_found"}
 ```
 
-### POST /media/delete
+## POST /media/delete
 
-Delete files or folders under `DOWNLOAD_DIR`. Folder deletion is recursive.
+Deletes files or folders under `DOWNLOAD_DIR`.
 
-Authentication is required.
+Warning: deletion is permanent. Folder deletion is recursive.
 
-Request:
+```bash
+BASE_URL="http://192.168.0.123:9835"
+TOKEN='paste-your-token-here'
 
-```http
-POST /media/delete
-Content-Type: application/json
-X-Token: <token>
+curl -sS -X POST "$BASE_URL/media/delete" \
+  -H "Content-Type: application/json" \
+  -H "X-Token: $TOKEN" \
+  -d '{"paths":["Channel Name/video.mp4","Channel Name/subfolder"]}'
 ```
 
-Body:
+Request body:
 
 ```json
 {
@@ -265,19 +262,7 @@ Body:
 }
 ```
 
-curl example:
-
-```bash
-BASE_URL="http://192.168.0.123:9835"
-TOKEN="Password123"
-
-curl -sS -X POST "$BASE_URL/media/delete" \
-  -H "Content-Type: application/json" \
-  -H "X-Token: $TOKEN" \
-  -d '{"paths":["Channel Name/video.mp4","Channel Name/subfolder"]}'
-```
-
-Response with partial results:
+Example partial-success response:
 
 ```json
 {
@@ -296,9 +281,11 @@ Response with partial results:
 
 Safety rules:
 
-- Every path must be relative to `DOWNLOAD_DIR`.
-- Absolute paths, empty paths, `.`, `..`, path traversal, and backslash paths are rejected.
-- Dot-prefixed path segments such as `.queue`, `.trash`, and `.git` are rejected.
-- The media root itself cannot be targeted.
-- Symlinks are not followed outside `DOWNLOAD_DIR`.
-- One failed path does not stop other delete attempts.
+- paths must be relative to `DOWNLOAD_DIR`
+- absolute paths are rejected
+- path traversal with `.` or `..` is rejected
+- empty paths are rejected
+- dot-prefixed internal folders such as `.queue`, `.trash`, and `.git` are rejected
+- symlink traversal outside the media root is rejected
+- the media root itself cannot be deleted
+- one failed path does not stop the rest of the request

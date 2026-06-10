@@ -2,56 +2,48 @@
   <img src="/assets/logo.png" alt="YT2NAS logo">
 </p>
 
-**YT2NAS** is a local network setup for sending YouTube links to a NAS, where downloads are handled **server-side** in a **queue**, with **password protection**.
+# YT2NAS
 
-The goal is simple: from a browser button or Android Share, send a YouTube URL to your NAS, let it download in order, and then play the resulting files from your NAS folder, for example in Kodi.
+YT2NAS lets you send YouTube links from a browser or Android phone to a NAS. The NAS queues the links, downloads them with `yt-dlp`, and stores the media in a folder such as `/mnt/NAS/Youtube`.
 
 ## Components
 
-### 1) NAS-side downloader
+- **NAS/server side**: a Python stdlib HTTP server, queue scripts, `yt-dlp`, and systemd services.
+- **Android app**: shares YouTube links to the NAS, browses downloaded channel folders, and can delete media through the server API.
+- **Tampermonkey/browser button**: adds a button to YouTube pages that sends the current URL to the NAS.
 
-The NAS runs the actual download with [yt-dlp](https://github.com/yt-dlp/yt-dlp). Both the browser script and the Android app call the same HTTP endpoint, where:
+Media deletion is available through the Android/server media API. Deleting a folder is permanent and recursive.
 
-- submitted URLs are added to a queue
-- processing happens sequentially
-- the endpoint requires a password
+## Server Install
 
-The server endpoint is a versioned Python file in this repository: `server/yt2nas_server.py`. The installer copies it to `/opt/yt2nas-server/` and configures it with `/etc/yt2nas-server.env`.
-
-The same protected API can also list channel folders, list files inside a channel, and delete media paths under the configured `DOWNLOAD_DIR`. Delete operations are recursive for folders and always require the `X-Token` header.
-
-Quick install:
+Run the server installer from a checkout of this repo:
 
 ```bash
 chmod +x server/install.sh server/yt2nas-server-setup.sh
 sudo ./server/install.sh install
 ```
 
-### 2) Browser button injected into YouTube (Tampermonkey)
+The installed server runs from `/opt/yt2nas-server/yt2nas_server.py`. Runtime configuration is stored in `/etc/yt2nas-server.env`.
 
-A Tampermonkey userscript adds a download button directly to the YouTube UI. Clicking it sends the current video URL to the NAS endpoint.
+## Documentation
 
-<img src="/assets/yt2nas_t_script.png" alt="script screenshot" width="400">
+- [Quick server install](./docs/how_to_install_the_server_easymode.md)
+- [Existing server migration guide](./docs/server_migration_guide.md)
+- [Troubleshooting](./docs/troubleshooting.md)
+- [Server API contract](./docs/how_to_create_your_own_server.md)
+- [Advanced server guide](./docs/how_to_advanced_mode.md)
 
-### 3) Android app (Flutter)
+## Security Notes
 
-A minimalist Flutter app that:
-
-- shows a first-run configuration screen for NAS address and password
-- appears in Android's Share sheet and forwards shared YouTube links to the NAS endpoint
-
-<img src="/assets/yt2nas_client_android.jpg" alt="Android app screenshot" width="200">
+- The server is intended for trusted LAN use.
+- Protected endpoints require the `X-Token` header.
+- Do not post your real token in issues, screenshots, logs, or chat.
+- If the Android app is connecting over plain `http://`, your Android build must allow cleartext HTTP for the server address.
 
 ## Typical Flow
 
-1. Open a YouTube video.
-2. Click the injected browser button or share the link to the Android app.
-3. The URL is sent to the NAS HTTP endpoint.
-4. The NAS downloads items in queue order.
-5. Kodi or any player browses the NAS folder and plays the downloaded files.
-
-Full setup and usage guide: **[Full guide](./docs/how_to_advanced_mode.md)**
-
-Quick start server guide: **[Quick start](./docs/how_to_install_the_server_easymode.md)**
-
-Build your own compatible server: **[How to create](./docs/how_to_create_your_own_server.md)**
+1. Share or queue a YouTube link.
+2. The NAS adds it to the queue.
+3. The queue timer runs `yt-dlp`.
+4. The downloaded files appear under the configured media root.
+5. Android or any NAS media player can browse the result.

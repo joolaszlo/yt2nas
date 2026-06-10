@@ -1,190 +1,150 @@
-# How to Install the YT2NAS Server (Ubuntu)
+# Quick Server Install
 
-This is the NAS-side setup. Client setup for Android and Tampermonkey is handled separately.
+This guide installs the NAS-side YT2NAS server on Ubuntu. The Android app and Tampermonkey script are configured separately.
 
 ## Requirements
 
-- Ubuntu with systemd
+- Ubuntu or another Linux system with systemd
 - sudo access
-- Python 3 already installed
-- Your NAS share already mounted, for example `/mnt/NAS`
-- A non-root Linux user that will run the server and downloads
+- Python 3 installed
+- a mounted NAS folder, for example `/mnt/NAS`
+- a non-root Linux user that can read, write, and delete inside the media folder
 
-The default media root is `/mnt/NAS/Youtube`. The server only uses files under this root, with queue state in `<DOWNLOAD_DIR>/.queue`.
+The default media root is:
 
-## Install
+```text
+/mnt/NAS/Youtube
+```
 
-Clone or download this repository on the server, then run:
+Inside that folder, each channel is expected to be a direct child folder.
+
+## Install Command
+
+Run this from a checkout of the YT2NAS repo:
 
 ```bash
 chmod +x server/install.sh server/yt2nas-server-setup.sh
 sudo ./server/install.sh install
 ```
 
-The installer prompts for:
+`server/yt2nas-server-setup.sh` is kept only as a deprecated compatibility wrapper. Use `server/install.sh` for new installs.
 
-- `RUN_USER`: non-root Linux user for the systemd service
-- `DOWNLOAD_DIR`: media root folder, default `/mnt/NAS/Youtube`
-- `PORT`: endpoint port, default `9835`
-- `TOKEN`: shared secret; leave empty to generate one
+## Installer Prompts
 
-The old entrypoint still works as a compatibility wrapper:
+The installer asks for these values:
 
-```bash
-sudo ./server/yt2nas-server-setup.sh install
+- `RUN_USER`: the non-root Linux user that runs the server and queue.
+- `DOWNLOAD_DIR`: the media root folder, usually `/mnt/NAS/Youtube`.
+- `PORT`: the HTTP port, usually `9835`.
+- `TOKEN`: the shared secret used by Android, Tampermonkey, and curl requests.
+
+Recommended values:
+
+```text
+RUN_USER      your normal NAS/download user
+DOWNLOAD_DIR  /mnt/NAS/Youtube
+PORT          9835
+TOKEN         leave empty to generate one, or paste your existing private token
 ```
+
+Do not share your real token publicly. It is the password-like shared secret for protected server endpoints.
 
 ## What Gets Installed
 
-- Server module copied from `server/yt2nas_server.py` to `/opt/yt2nas-server/yt2nas_server.py`
-- Environment file: `/etc/yt2nas-server.env`
-- Endpoint service: `/etc/systemd/system/yt2nas-server.service`
-- Queue runner service and timer:
-  - `/etc/systemd/system/yt2nas-queue.service`
-  - `/etc/systemd/system/yt2nas-queue.timer`
-- Queue helper scripts:
-  - `/usr/local/bin/yt2nas-add.sh`
-  - `/usr/local/bin/yt2nas-run.sh`
-- Queue files and logs under `<DOWNLOAD_DIR>/.queue`
+- versioned server file copied to `/opt/yt2nas-server/yt2nas_server.py`
+- runtime config written to `/etc/yt2nas-server.env`
+- main server service: `yt2nas-server.service`
+- queue service and timer: `yt2nas-queue.service` and `yt2nas-queue.timer`
+- queue helper scripts in `/usr/local/bin`
+- queue files and logs under `<DOWNLOAD_DIR>/.queue`
 
-The installer also keeps the legacy config file `/etc/yt2nas/yt2nas.conf` for compatibility with older documentation and scripts.
+The installer also writes `/etc/yt2nas/yt2nas.conf` for compatibility with older scripts and documentation.
 
-## Configuration
+## Edit Configuration Safely
 
-Runtime configuration lives in:
+Show the config without printing the token:
 
 ```bash
 sudo sed 's/^YT2NAS_TOKEN=.*/YT2NAS_TOKEN="<hidden>"/' /etc/yt2nas-server.env
 ```
 
-Important values:
+Edit the config:
 
-- `YT2NAS_RUN_USER`: non-root user running the service
-- `YT2NAS_DOWNLOAD_DIR`: media root folder
-- `YT2NAS_PORT`: HTTP endpoint port
-- `YT2NAS_TOKEN`: shared secret sent as `X-Token`
-- `YT2NAS_ADD_SCRIPT`: queue helper script path
+```bash
+sudo nano /etc/yt2nas-server.env
+```
 
-After editing `/etc/yt2nas-server.env`, restart the service:
+Restart the server after changes:
 
 ```bash
 sudo systemctl restart yt2nas-server.service
 ```
 
-## Verify
+If you changed the port, update the Android app and browser script base URL too.
+
+## Test the Server
+
+Local health check on the NAS:
 
 ```bash
-sudo systemctl status yt2nas-server.service --no-pager
-sudo systemctl status yt2nas-queue.timer --no-pager
 curl http://127.0.0.1:9835/health
 ```
 
-If you changed the port, use that port instead of `9835`.
-
-Authenticated smoke test:
+LAN health check from another computer on the same network:
 
 ```bash
-TOKEN='YOUR_TOKEN'
-curl -sS -H "X-Token: $TOKEN" http://127.0.0.1:9835/queue-len
+curl http://SERVER_LAN_IP:9835/health
 ```
+
+Use the NAS LAN IP address, not `127.0.0.1`. On a phone, `127.0.0.1` means the phone itself.
+
+Token-protected media endpoint test:
+
+```bash
+TOKEN='paste-your-token-here'
+curl -sS -H "X-Token: $TOKEN" http://127.0.0.1:9835/media/channels
+```
+
+Avoid pasting real tokens into public logs or screenshots.
+
+## Media Management Warning
+
+The server exposes media browsing and deletion endpoints for Android support:
+
+- `GET /media/channels`
+- `GET /media/list?channel=<channel-folder-name>`
+- `POST /media/delete`
+
+Delete is permanent. Folder delete is recursive. The server rejects absolute paths, path traversal, and dot-prefixed internal folders such as `.queue`, `.trash`, and `.git`.
 
 ## Update
 
-Run from a fresh checkout of the repository:
+From a fresh checkout:
 
 ```bash
 sudo ./server/install.sh update
 ```
 
-This updates `yt-dlp`, recopies `server/yt2nas_server.py` into `/opt/yt2nas-server/`, rewrites managed scripts and units, and restarts services.
+This recopies `server/yt2nas_server.py` to `/opt/yt2nas-server/`, refreshes managed scripts and systemd units, updates `yt-dlp`, and restarts the services.
 
 ## Uninstall
+
+Remove services, installed server files, helper scripts, and config files:
 
 ```bash
 sudo ./server/install.sh uninstall
 ```
 
-This stops services and removes installed units, helper scripts, `/opt/yt2nas-server/yt2nas_server.py`, and config files. Downloaded videos remain.
-
-To also remove queue files and logs:
+Remove queue files and logs too:
 
 ```bash
 sudo ./server/install.sh uninstall --purge
 ```
 
-`--purge` removes `<DOWNLOAD_DIR>/.queue`. It does not delete downloaded videos.
+Downloaded videos are not deleted by uninstall. `--purge` removes only `<DOWNLOAD_DIR>/.queue`.
 
-## Endpoint Summary
+## More Help
 
-Base URL:
-
-```text
-http://YOUR_SERVER_IP:9835
-```
-
-Public endpoint:
-
-- `GET /health`
-
-Authenticated endpoints require this header:
-
-```text
-X-Token: <your_token>
-```
-
-- `POST /add` with JSON body `{"url":"https://www.youtube.com/watch?v=VIDEO_ID"}`
-- `GET /queue-len`
-- `GET /queue-tail?lines=50`
-- `GET /tail?log=yt&lines=120`
-- `GET /tail?log=endpoint&lines=120`
-- `GET /media/channels`
-- `GET /media/list?channel=<channel-folder-name>`
-- `POST /media/delete`
-
-## Media Management API
-
-All media paths are restricted to `YT2NAS_DOWNLOAD_DIR`, usually `/mnt/NAS/Youtube`. The server rejects absolute paths, path traversal, empty paths, and dot-prefixed internal folders such as `.queue`, `.trash`, or `.git`.
-
-Folder deletion is recursive. Use it carefully.
-
-List channel folders:
-
-```bash
-TOKEN='YOUR_TOKEN'
-curl -sS -H "X-Token: $TOKEN" \
-  http://127.0.0.1:9835/media/channels
-```
-
-List direct children of one channel folder:
-
-```bash
-TOKEN='YOUR_TOKEN'
-curl -sS -H "X-Token: $TOKEN" \
-  'http://127.0.0.1:9835/media/list?channel=Channel%20Name'
-```
-
-Delete files or folders under `DOWNLOAD_DIR`:
-
-```bash
-TOKEN='YOUR_TOKEN'
-curl -sS -X POST http://127.0.0.1:9835/media/delete \
-  -H "Content-Type: application/json" \
-  -H "X-Token: $TOKEN" \
-  -d '{"paths":["Channel Name/video.mp4","Channel Name/subfolder"]}'
-```
-
-The delete response contains both `deleted` and `failed` arrays so one bad path does not stop the rest of the request.
-
-## Manual Test Checklist
-
-```bash
-curl http://127.0.0.1:9835/health
-
-TOKEN='YOUR_TOKEN'
-curl -sS -H "X-Token: $TOKEN" http://127.0.0.1:9835/media/channels
-curl -sS -H "X-Token: $TOKEN" 'http://127.0.0.1:9835/media/list?channel=Channel%20Name'
-curl -sS -X POST http://127.0.0.1:9835/media/delete \
-  -H "Content-Type: application/json" \
-  -H "X-Token: $TOKEN" \
-  -d '{"paths":["Channel Name/test-file-to-delete.txt"]}'
-```
+- [Existing server migration guide](./server_migration_guide.md)
+- [Troubleshooting](./troubleshooting.md)
+- [Server API contract](./how_to_create_your_own_server.md)
