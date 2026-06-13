@@ -216,3 +216,64 @@ tail -n 100 /mnt/NAS/Youtube/.queue/queue.txt
 ```
 
 If downloads never start, make sure `yt2nas-queue.timer` is enabled and running.
+
+## Download Fails With `Permission denied, Errno 13 error`
+
+### Error
+
+Some downloads fail with an error like:
+
+```text
+ERROR: unable to open for writing: [Errno 13] Permission denied:
+'/mnt/NAS/Youtube/Channel Name/video-title [video_id].f401.mp4.part'
+```
+
+The URL is added to the queue correctly, and `yt-dlp` starts, but it cannot create the temporary `.part` file in the target download folder.
+
+### Cause
+
+The download directory, or one of its channel subfolders, is not writable by the user running the YT2NAS queue service.
+
+This can happen if folders were created manually, copied from another system, or created by a different Linux user. Normal `ls -l` permissions may also look correct while ACL permissions still block writing.
+
+### Fix
+
+Replace `YOUR_LINUX_USER` with the Linux user that should manually manage files in the download directory.
+
+```bash
+sudo usermod -aG yt2nas YOUR_LINUX_USER
+```
+
+Then fix ownership, permissions, and ACLs for the whole YT2NAS download directory:
+
+```bash
+sudo bash -c '
+set -a
+. /etc/yt2nas-server.env
+set +a
+
+DIR="$YT2NAS_DOWNLOAD_DIR"
+
+chown -R "$YT2NAS_RUN_USER:$YT2NAS_GROUP" "$DIR"
+
+find "$DIR" -type d -exec chmod 2775 {} +
+find "$DIR" -type f -exec chmod 664 {} +
+
+setfacl -R -m u:YOUR_LINUX_USER:rwx "$DIR"
+setfacl -R -m u:"$YT2NAS_RUN_USER":rwx "$DIR"
+setfacl -R -m g:"$YT2NAS_GROUP":rwx "$DIR"
+setfacl -R -m m:rwx "$DIR"
+
+setfacl -R -d -m u:YOUR_LINUX_USER:rwx "$DIR"
+setfacl -R -d -m u:"$YT2NAS_RUN_USER":rwx "$DIR"
+setfacl -R -d -m g:"$YT2NAS_GROUP":rwx "$DIR"
+setfacl -R -d -m m:rwx "$DIR"
+
+chmod 2770 "$DIR/.queue"
+chown -R "$YT2NAS_RUN_USER:$YT2NAS_GROUP" "$DIR/.queue"
+chmod 600 "$DIR/.queue/endpoint.secret" 2>/dev/null || true
+'
+```
+
+After adding a user to the `yt2nas` group, log out and log back in, or reconnect over SSH, so the new group membership becomes active.
+
