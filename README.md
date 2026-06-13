@@ -17,7 +17,7 @@ Media deletion is available through the Android/server media API. Deleting a fil
 
 ## Install
 
-- [Simple Installation Guide](./docs/docs/Simple_Installation_Guide.md)
+- [Simple Installation Guide](./docs/Simple_Installation_Guide.md)
 
 ## Documentation
 
